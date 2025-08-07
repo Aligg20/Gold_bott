@@ -1,4 +1,3 @@
-
 import os
 import csv
 import jdatetime
@@ -7,6 +6,10 @@ from pytz import timezone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 
+from flask import Flask
+import threading
+
+# دریافت متغیرهای محیطی
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL_ID = os.environ.get("CHANNEL_ID")
 ADMINS = list(map(int, os.environ.get("ADMINS", "").split(",")))
@@ -24,6 +27,7 @@ weekday_map = {
     "Friday": "جمعه"
 }
 
+# منوی اصلی
 async def send_main_menu(update_or_query, context):
     keyboard = [
         [InlineKeyboardButton("✅ ثبت قیمت جدید", callback_data="start_price")],
@@ -34,6 +38,7 @@ async def send_main_menu(update_or_query, context):
     else:
         await update_or_query.edit_message_text("می‌خوای چیکار کنی؟", reply_markup=InlineKeyboardMarkup(keyboard))
 
+# /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in ADMINS:
@@ -41,6 +46,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await send_main_menu(update, context)
 
+# پیام‌های متنی
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in state or state[user_id].get("step") not in ["buy", "sell"]:
@@ -90,6 +96,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         await update.message.reply_text("✅ پیش‌نمایش آماده‌ست. ارسال کنم؟", reply_markup=InlineKeyboardMarkup(keyboard))
 
+# هندلر دکمه‌ها
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -117,10 +124,23 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state.pop(user_id, None)
         await send_main_menu(query, context)
 
+# تنظیمات اپلیکیشن تلگرام
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 app.add_handler(CallbackQueryHandler(handle_buttons))
 
+# ---- اضافه کردن Flask برای UptimeRobot ----
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
+def home():
+    return "Bot is running"
+
+def run_flask():
+    flask_app.run(host="0.0.0.0", port=8080)
+
+# ---- اجرای هم‌زمان Flask و Bot ----
 if __name__ == "__main__":
+    threading.Thread(target=run_flask).start()
     app.run_polling()
