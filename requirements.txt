@@ -1,4 +1,7 @@
 flask
-python-telegram-bot==20.3
+python-telegram-bot==22.5
 jdatetime
 pytz
+httpx==0.28.1
+httpcore==1.0.9
+anyio==4.10.0
